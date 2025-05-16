@@ -30,10 +30,15 @@ async def send_test_reminder():
 # /remindme command with support for date and time and repetition
 async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        message = ' '.join(context.args)
         user_id = update.effective_chat.id
         lang = user_lang.get(user_id, "fa")
 
+        if not context.args:
+            msg = "لطفاً زمان و پیام یادآوری را وارد کن.\nمثال: /remindme 10min نوشیدن آب" if lang == "fa" else "Please provide time and message.\nExample: /remindme 10min drink water"
+            await update.message.reply_text(msg)
+            return
+
+        message = ' '.join(context.args)
         repeat = None
         if "daily" in message.lower():
             repeat = "daily"
