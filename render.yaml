@@ -2,5 +2,7 @@ services:
   - type: web
     name: evercarebot
     env: python
+    plan: free
     buildCommand: ""
     startCommand: python main.py
+    autoDeploy: true

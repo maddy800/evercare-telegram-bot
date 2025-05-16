@@ -1,5 +1,5 @@
 from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import asyncio
 import os
 import nest_asyncio
@@ -10,8 +10,8 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 USER_ID = 105692584
 
 bot = Bot(token=BOT_TOKEN)
-reminder_tasks = {}  # Dictionary to track active reminders
-user_lang = {}  # Optional: track user preferred language
+reminder_tasks = {}
+user_lang = {}
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,11 +78,11 @@ async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=user_id, text=remind_msg)
             if repeat == "daily":
                 while True:
-                    await asyncio.sleep(86400)  # 24h
+                    await asyncio.sleep(86400)
                     await context.bot.send_message(chat_id=user_id, text=remind_msg)
             elif repeat == "weekly":
                 while True:
-                    await asyncio.sleep(604800)  # 7 days
+                    await asyncio.sleep(604800)
                     await context.bot.send_message(chat_id=user_id, text=remind_msg)
 
         asyncio.create_task(send_reminder())
@@ -115,14 +115,13 @@ async def main():
     app.add_handler(CommandHandler("remindme", remindme))
     app.add_handler(CommandHandler("list", list_reminders))
 
-       async def after_start(app):
+    async def after_start(app):
         await asyncio.sleep(3)
         await send_test_reminder()
 
     app.post_init = after_start
     await app.run_polling()
 
-# entrypoint
 if __name__ == '__main__':
     nest_asyncio.apply()
     asyncio.run(main())
