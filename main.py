@@ -11,38 +11,43 @@ USER_ID = 105692584
 
 bot = Bot(token=BOT_TOKEN)
 reminder_tasks = {}  # Dictionary to track active reminders
+user_lang = {}  # Optional: track user preferred language
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_message = """سلام! من EverCareBot هستم 🌿 و قراره یادآوری‌های مهربون برات بفرستم.
-Hi! I'm EverCareBot 🌿 here to send you kind reminders and warm support."""
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message)
+    user_id = update.effective_chat.id
+    if update.effective_user.language_code == "fa":
+        user_lang[user_id] = "fa"
+        await context.bot.send_message(chat_id=user_id, text="سلام! من EverCareBot هستم 🌿 و قراره یادآوری‌های مهربون برات بفرستم.")
+    else:
+        user_lang[user_id] = "en"
+        await context.bot.send_message(chat_id=user_id, text="Hi! I'm EverCareBot 🌿 here to send you kind reminders and warm support.")
 
 # test reminder
 async def send_test_reminder():
-    await bot.send_message(chat_id=USER_ID, text="""🌙 یادآوری تستی: ربات فعال است.
-🌙 Test Reminder: EverCareBot is working!""")
+    await bot.send_message(chat_id=USER_ID, text="🌙 Test Reminder: EverCareBot is working!")
 
 # /remindme command with support for date and time
 async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = ' '.join(context.args)
         user_id = update.effective_chat.id
+        lang = user_lang.get(user_id, "fa")
 
-        # Support for formats like: 2025-05-20 14:30 دارو
         match_date = re.match(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s+(.*)', message)
         if match_date:
             date_str, time_str, task = match_date.groups()
             reminder_time = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
             delay = (reminder_time - datetime.now()).total_seconds()
             if delay <= 0:
-                await update.message.reply_text("زمان وارد شده گذشته است.")
+                msg = "زمان وارد شده گذشته است." if lang == "fa" else "The time has already passed."
+                await update.message.reply_text(msg)
                 return
         else:
-            # Fallback to short format like 10min or 2h
             match_short = re.match(r'(\d+)(min|h)\s+(.*)', message)
             if not match_short:
-                await update.message.reply_text("فرمت درست: /remindme YYYY-MM-DD HH:MM پیام شما یا /remindme 10min پیام شما")
+                msg = "فرمت درست: /remindme YYYY-MM-DD HH:MM پیام یا /remindme 10min پیام" if lang == "fa" else "Format: /remindme YYYY-MM-DD HH:MM message or /remindme 10min message"
+                await update.message.reply_text(msg)
                 return
             value, unit, task = match_short.groups()
             delay = int(value) * 60 if unit == 'min' else int(value) * 3600
@@ -51,29 +56,35 @@ async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reminder_tasks[user_id] = reminder_tasks.get(user_id, [])
         reminder_tasks[user_id].append((task, reminder_time))
 
-        await update.message.reply_text(f"یادآوری تنظیم شد برای {reminder_time.strftime('%Y-%m-%d %H:%M')} : {task}")
+        msg = f"یادآوری تنظیم شد برای {reminder_time.strftime('%Y-%m-%d %H:%M')} : {task}" if lang == "fa" else f"Reminder set for {reminder_time.strftime('%Y-%m-%d %H:%M')}: {task}"
+        await update.message.reply_text(msg)
 
         async def send_reminder():
             await asyncio.sleep(delay)
-            await context.bot.send_message(chat_id=user_id, text=f"⏰ یادآوری: {task}")
+            remind_msg = f"⏰ یادآوری: {task}" if lang == "fa" else f"⏰ Reminder: {task}"
+            await context.bot.send_message(chat_id=user_id, text=remind_msg)
 
         asyncio.create_task(send_reminder())
 
     except Exception as e:
-        await update.message.reply_text("خطا در تنظیم یادآوری. لطفاً دوباره تلاش کن.")
+        msg = "خطا در تنظیم یادآوری. لطفاً دوباره تلاش کن." if lang == "fa" else "Error setting reminder. Please try again."
+        await update.message.reply_text(msg)
 
 # /list command
 async def list_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
+    lang = user_lang.get(user_id, "fa")
     reminders = reminder_tasks.get(user_id, [])
     if not reminders:
-        await update.message.reply_text("یادآوری فعالی وجود ندارد.")
+        msg = "یادآوری فعالی وجود ندارد." if lang == "fa" else "No active reminders."
+        await update.message.reply_text(msg)
         return
 
-    reply = "📋 لیست یادآوری‌های فعال:\n"
+    reply = "📋 لیست یادآوری‌های فعال:\n" if lang == "fa" else "📋 Active Reminders:\n"
     for idx, (task, time) in enumerate(reminders, 1):
         minutes_left = int((time - datetime.now()).total_seconds() // 60)
-        reply += f"{idx}. {task} (تا {time.strftime('%Y-%m-%d %H:%M')} | حدود {minutes_left} دقیقه دیگر)\n"
+        entry = f"{idx}. {task} (تا {time.strftime('%Y-%m-%d %H:%M')} | حدود {minutes_left} دقیقه دیگر)\n" if lang == "fa" else f"{idx}. {task} (at {time.strftime('%Y-%m-%d %H:%M')} | in ~{minutes_left} minutes)\n"
+        reply += entry
     await update.message.reply_text(reply)
 
 # main
@@ -88,11 +99,7 @@ async def main():
         await send_test_reminder()
 
     app.post_init = after_start
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
-    while True:
-        await asyncio.sleep(60)
+    await app.run_polling()
 
 # entrypoint
 if __name__ == '__main__':
