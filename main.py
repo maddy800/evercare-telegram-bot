@@ -5,7 +5,8 @@ import os
 import nest_asyncio
 
 # Environment-safe (or hardcoded during testing)
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "توکن_اینجا_بذار_برای_تست")
+BOT_TOKEN = "7711266472:AAETBtrElR81y6SL3kvqeSHQQua9htzM26M"
+
 USER_ID = int(os.environ.get("USER_ID", "105692584"))
 
 bot = Bot(token=BOT_TOKEN)
