@@ -115,7 +115,7 @@ async def main():
     app.add_handler(CommandHandler("remindme", remindme))
     app.add_handler(CommandHandler("list", list_reminders))
 
-    async def after_start():
+       async def after_start(app):
         await asyncio.sleep(3)
         await send_test_reminder()
 
