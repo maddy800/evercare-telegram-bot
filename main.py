@@ -27,12 +27,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_test_reminder():
     await bot.send_message(chat_id=USER_ID, text="🌙 Test Reminder: EverCareBot is working!")
 
-# /remindme command with support for date and time
+# /remindme command with support for date and time and repetition
 async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = ' '.join(context.args)
         user_id = update.effective_chat.id
         lang = user_lang.get(user_id, "fa")
+
+        repeat = None
+        if "daily" in message.lower():
+            repeat = "daily"
+            message = message.lower().replace("daily", "").strip()
+        elif "weekly" in message.lower():
+            repeat = "weekly"
+            message = message.lower().replace("weekly", "").strip()
 
         match_date = re.match(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s+(.*)', message)
         if match_date:
@@ -46,7 +54,7 @@ async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             match_short = re.match(r'(\d+)(min|h)\s+(.*)', message)
             if not match_short:
-                msg = "فرمت درست: /remindme YYYY-MM-DD HH:MM پیام یا /remindme 10min پیام" if lang == "fa" else "Format: /remindme YYYY-MM-DD HH:MM message or /remindme 10min message"
+                msg = "فرمت درست: /remindme YYYY-MM-DD HH:MM پیام شما یا /remindme 10min پیام شما" if lang == "fa" else "Format: /remindme YYYY-MM-DD HH:MM message or /remindme 10min message"
                 await update.message.reply_text(msg)
                 return
             value, unit, task = match_short.groups()
@@ -63,6 +71,14 @@ async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(delay)
             remind_msg = f"⏰ یادآوری: {task}" if lang == "fa" else f"⏰ Reminder: {task}"
             await context.bot.send_message(chat_id=user_id, text=remind_msg)
+            if repeat == "daily":
+                while True:
+                    await asyncio.sleep(86400)  # 24h
+                    await context.bot.send_message(chat_id=user_id, text=remind_msg)
+            elif repeat == "weekly":
+                while True:
+                    await asyncio.sleep(604800)  # 7 days
+                    await context.bot.send_message(chat_id=user_id, text=remind_msg)
 
         asyncio.create_task(send_reminder())
 
