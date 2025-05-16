@@ -4,10 +4,9 @@ import asyncio
 import os
 import nest_asyncio
 
-# Environment-safe (or hardcoded during testing)
+# توکن مستقیم داخل فایل (برای تست سریع)
 BOT_TOKEN = "7711266472:AAETBtrElR81y6SL3kvqeSHQQua9htzM26M"
-
-USER_ID = int(os.environ.get("USER_ID", "105692584"))
+USER_ID = 105692584
 
 bot = Bot(token=BOT_TOKEN)
 
@@ -42,5 +41,3 @@ async def main():
 if __name__ == '__main__':
     nest_asyncio.apply()
     asyncio.get_event_loop().run_until_complete(main())
-
-
