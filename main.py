@@ -15,6 +15,8 @@ bot = Bot(token=BOT_TOKEN)
 reminder_tasks = {}
 user_lang = {}
 
+bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+
 app_api = FastAPI()
 
 @app_api.post("/api/reminder")
@@ -117,12 +119,12 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "فرمت کامل رو اینطوری وارد کن: \n2025-05-17 14:00 دارو بخور" if lang == "fa" else "Use full format like: \n2025-05-17 14:00 take medicine"
         await update.message.reply_text(msg)
 
+bot_app.add_handler(CommandHandler("start", start))
+bot_app.add_handler(CommandHandler("remindme", remindme))
+bot_app.add_handler(CommandHandler("list", list_reminders))
+bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_buttons))
+
 async def startup():
-    bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("remindme", remindme))
-    bot_app.add_handler(CommandHandler("list", list_reminders))
-    bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_buttons))
     await bot_app.initialize()
     await bot_app.start()
     await send_test_reminder()
