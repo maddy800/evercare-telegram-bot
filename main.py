@@ -2,6 +2,7 @@ from telegram import Update, Bot, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import asyncio
 import os
+import json
 import nest_asyncio
 import re
 from datetime import datetime, timedelta
@@ -9,22 +10,42 @@ from fastapi import FastAPI, Request
 import uvicorn
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-USER_ID = 105692584
-
 bot = Bot(token=BOT_TOKEN)
 reminder_tasks = {}
 user_lang = {}
 
-bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+# File to store user IDs
+USER_FILE = "users.json"
 
+def load_users():
+    if os.path.exists(USER_FILE):
+        with open(USER_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_user(user_id):
+    users = load_users()
+    if str(user_id) not in users:
+        users[str(user_id)] = True
+        with open(USER_FILE, "w") as f:
+            json.dump(users, f)
+
+def is_registered(user_id):
+    users = load_users()
+    return str(user_id) in users
+
+bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 app_api = FastAPI()
 
 @app_api.post("/api/reminder")
 async def api_reminder(request: Request):
     data = await request.json()
-    user_id = int(data.get("user_id", USER_ID))
+    user_id = int(data.get("user_id"))
     message = data.get("message", "10min drink water")
     lang = data.get("lang", "en")
+
+    if not is_registered(user_id):
+        return {"status": "error", "msg": "User not registered. Please start the bot first."}
 
     repeat = None
     if "daily" in message.lower():
@@ -71,6 +92,7 @@ async def api_reminder(request: Request):
 # Telegram bot logic
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
+    save_user(user_id)
     lang = update.effective_user.language_code
     user_lang[user_id] = "fa" if lang == "fa" else "en"
     if lang == "fa":
@@ -84,7 +106,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=user_id, text=greeting, reply_markup=reply_markup)
 
 async def send_test_reminder():
-    await bot.send_message(chat_id=USER_ID, text="🌙 Test Reminder: EverCareBot is working!")
+    users = load_users()
+    for uid in users:
+        await bot.send_message(chat_id=int(uid), text="🌙 Test Reminder: EverCareBot is working!")
 
 async def list_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
@@ -124,13 +148,14 @@ bot_app.add_handler(CommandHandler("remindme", remindme))
 bot_app.add_handler(CommandHandler("list", list_reminders))
 bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_buttons))
 
-async def startup():
-    await bot_app.initialize()
-    await bot_app.start()
-    await send_test_reminder()
-
-app_api.add_event_handler("startup", startup)
-
 if __name__ == '__main__':
+    import logging
+    logging.basicConfig(level=logging.INFO)
     nest_asyncio.apply()
-    uvicorn.run(app_api, host="0.0.0.0", port=8000)
+
+    async def main():
+        bot_task = asyncio.create_task(bot_app.run_polling())
+        api_task = asyncio.create_task(uvicorn.run(app_api, host="0.0.0.0", port=8000))
+        await asyncio.gather(bot_task, api_task)
+
+    asyncio.run(main())
