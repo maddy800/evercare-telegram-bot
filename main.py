@@ -114,3 +114,4 @@ app_api.add_event_handler("startup", startup)
 if __name__ == '__main__':
     nest_asyncio.apply()
     uvicorn.run(app_api, host="0.0.0.0", port=8000)
+
