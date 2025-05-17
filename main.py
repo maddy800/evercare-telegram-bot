@@ -100,21 +100,17 @@ async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request._body = {"user_id": update.effective_chat.id, "message": ' '.join(context.args), "lang": user_lang.get(update.effective_chat.id, "fa")}
     await api_reminder(request)
 
-async def main():
+async def startup():
     bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("remindme", remindme))
     bot_app.add_handler(CommandHandler("list", list_reminders))
+    await bot_app.initialize()
+    await bot_app.start()
+    await send_test_reminder()
 
-    async def after_start(app):
-        await asyncio.sleep(3)
-        await send_test_reminder()
-
-    bot_app.post_init = after_start
-    asyncio.create_task(bot_app.run_polling())
-    config = {"host": "0.0.0.0", "port": 8000, "log_level": "info"}
-    await uvicorn.run(app_api, **config)
+app_api.add_event_handler("startup", startup)
 
 if __name__ == '__main__':
     nest_asyncio.apply()
-    asyncio.run(main())
+    uvicorn.run(app_api, host="0.0.0.0", port=8000)
