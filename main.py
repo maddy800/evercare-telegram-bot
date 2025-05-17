@@ -1,5 +1,5 @@
-from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update, Bot, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import asyncio
 import os
 import nest_asyncio
@@ -66,15 +66,20 @@ async def api_reminder(request: Request):
     asyncio.create_task(send_reminder())
     return {"status": "ok", "msg": "Reminder scheduled"}
 
-# Keep the Telegram bot logic
+# Telegram bot logic
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
-    if update.effective_user.language_code == "fa":
-        user_lang[user_id] = "fa"
-        await context.bot.send_message(chat_id=user_id, text="سلام! من EverCareBot هستم 🌿 و قراره یادآوری‌های مهربون برات بفرستم.")
+    lang = update.effective_user.language_code
+    user_lang[user_id] = "fa" if lang == "fa" else "en"
+    if lang == "fa":
+        greeting = "سلام! من EverCareBot هستم 🌿 و قراره یادآوری‌های مهربون برات بفرستم."
+        keyboard = [["📌 تنظیم یادآوری سریع", "🕒 تنظیم یادآوری با تاریخ"]]
     else:
-        user_lang[user_id] = "en"
-        await context.bot.send_message(chat_id=user_id, text="Hi! I'm EverCareBot 🌿 here to send you kind reminders and warm support.")
+        greeting = "Hi! I'm EverCareBot 🌿 here to send you kind reminders and warm support."
+        keyboard = [["📌 Quick Reminder", "🕒 Scheduled Reminder"]]
+
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await context.bot.send_message(chat_id=user_id, text=greeting, reply_markup=reply_markup)
 
 async def send_test_reminder():
     await bot.send_message(chat_id=USER_ID, text="🌙 Test Reminder: EverCareBot is working!")
@@ -100,11 +105,24 @@ async def remindme(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request._body = {"user_id": update.effective_chat.id, "message": ' '.join(context.args), "lang": user_lang.get(update.effective_chat.id, "fa")}
     await api_reminder(request)
 
+async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_chat.id
+    text = update.message.text
+    lang = user_lang.get(user_id, "fa")
+
+    if text.startswith("📌") or text.startswith("Quick"):
+        msg = "لطفاً پیامتو اینطوری بفرست: \nمثلاً: 10min دارو بخور" if lang == "fa" else "Please type your reminder like: \nExample: 10min take medicine"
+        await update.message.reply_text(msg)
+    elif text.startswith("🕒") or text.startswith("Scheduled"):
+        msg = "فرمت کامل رو اینطوری وارد کن: \n2025-05-17 14:00 دارو بخور" if lang == "fa" else "Use full format like: \n2025-05-17 14:00 take medicine"
+        await update.message.reply_text(msg)
+
 async def startup():
     bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("remindme", remindme))
     bot_app.add_handler(CommandHandler("list", list_reminders))
+    bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_buttons))
     await bot_app.initialize()
     await bot_app.start()
     await send_test_reminder()
@@ -114,4 +132,3 @@ app_api.add_event_handler("startup", startup)
 if __name__ == '__main__':
     nest_asyncio.apply()
     uvicorn.run(app_api, host="0.0.0.0", port=8000)
-
